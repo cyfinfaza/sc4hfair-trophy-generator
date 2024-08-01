@@ -14,6 +14,8 @@ def generate_trophy():
     initials = request.args.get('initials', '')
     if not initials:
         return "No initials provided", 400
+    if len(initials) > 3:
+        return "Initials cannot be longer than 3 characters", 400
 
     blend_file = os.path.join(os.path.dirname(__file__), 'trophy-python.blend')
     text_object_name = "initials"
@@ -42,6 +44,9 @@ def generate_trophy_ds():
     
     if not initials_1 or not initials_2:
         return "Both sets of initials are required", 400
+    
+    if len(initials_1) > 3 or len(initials_2) > 3:
+        return "Initials cannot be longer than 3 characters", 400
 
     blend_file = os.path.join(os.path.dirname(__file__), 'trophy-twosided-python.blend')
     output_path = os.path.join(tempfile.gettempdir(), 'trophy.stl')
