@@ -80,7 +80,7 @@ class MarlinPrinter:
             print("Failed to end file write")
         return result
 
-    def send_gcode_to_sd(self, gcode_file):
+    def send_gcode_to_sd(self, gcode_file, progress_callback=None):
         if not self.connect():
             return False
 
@@ -109,15 +109,23 @@ class MarlinPrinter:
                             return False
                     
                     sent_lines += 1
-                    if sent_lines % 100 == 0:  # Update progress every 100 lines
+                    if sent_lines % 10 == 0:  # Update progress every 10 lines
                         progress = (sent_lines / total_lines) * 100
                         print(f"Progress: {progress:.2f}% ({sent_lines}/{total_lines})")
+                        if progress_callback:
+                            progress_callback(progress)
 
             # End file write
             if not self.end_file_write():
                 return False
 
             print(f"Successfully sent {filename} to printer's SD card")
+
+            self.send_command(f"M23 {filename}")
+            self.send_command(f"M24")
+
+            print("Print started.")
+
             return True
 
         finally:
@@ -125,6 +133,6 @@ class MarlinPrinter:
 
 # Example usage
 if __name__ == "__main__":
-    printer = MarlinPrinter("COM7")  # Adjust port as necessary
+    printer = MarlinPrinter("/dev/ttyACM0")  # Adjust port as necessary
     gcode_file = "test.gcode"
     printer.send_gcode_to_sd(gcode_file)

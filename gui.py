@@ -10,6 +10,7 @@ from gcode_sender import MarlinPrinter
 
 class WorkerThread(QThread):
     update_progress = pyqtSignal(int, str)
+    update_send_progress = pyqtSignal(float)
     finished = pyqtSignal(bool, str)
 
     def __init__(self, initials, port):
@@ -38,7 +39,7 @@ class WorkerThread(QThread):
             # Step 3: Send G-code to printer
             self.update_progress.emit(66, "Sending to printer...")
             printer = MarlinPrinter(self.port)
-            if printer.send_gcode_to_sd(gcode_path):
+            if printer.send_gcode_to_sd(gcode_path, progress_callback=self.update_send_progress.emit):
                 self.finished.emit(True, "Trophy successfully sent to printer!")
             else:
                 self.finished.emit(False, "Failed to send G-code to printer")
@@ -50,7 +51,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Trophy Printer")
-        self.setGeometry(100, 100, 400, 200)
+        self.setGeometry(100, 100, 400, 250)
 
         layout = QVBoxLayout()
 
@@ -73,9 +74,15 @@ class MainWindow(QMainWindow):
         self.go_button.clicked.connect(self.start_process)
         layout.addWidget(self.go_button)
 
-        # Progress bar
-        self.progress_bar = QProgressBar()
-        layout.addWidget(self.progress_bar)
+        # Overall progress bar
+        self.overall_progress_bar = QProgressBar()
+        layout.addWidget(QLabel("Overall Progress:"))
+        layout.addWidget(self.overall_progress_bar)
+
+        # File sending progress bar
+        self.send_progress_bar = QProgressBar()
+        layout.addWidget(QLabel("File Sending Progress:"))
+        layout.addWidget(self.send_progress_bar)
 
         # Status label
         self.status_label = QLabel()
@@ -87,7 +94,7 @@ class MainWindow(QMainWindow):
 
     def scan_printers(self):
         # This is a placeholder. You'll need to implement actual printer scanning logic.
-        self.printer_combo.addItems(["COM1", "COM2", "COM3", "COM7"])
+        self.printer_combo.addItems(["COM1", "COM2", "COM3", "/dev/ttyACM0"])
 
     def start_process(self):
         initials = self.initials_input.text().upper()
@@ -98,18 +105,25 @@ class MainWindow(QMainWindow):
         port = self.printer_combo.currentText()
         self.worker = WorkerThread(initials, port)
         self.worker.update_progress.connect(self.update_progress)
+        self.worker.update_send_progress.connect(self.update_send_progress)
         self.worker.finished.connect(self.process_finished)
         self.worker.start()
 
         self.go_button.setEnabled(False)
+        self.overall_progress_bar.setValue(0)
+        self.send_progress_bar.setValue(0)
 
     def update_progress(self, value, message):
-        self.progress_bar.setValue(value)
+        self.overall_progress_bar.setValue(value)
         self.status_label.setText(message)
+
+    def update_send_progress(self, value):
+        self.send_progress_bar.setValue(int(value))
 
     def process_finished(self, success, message):
         self.status_label.setText(message)
-        self.progress_bar.setValue(100 if success else 0)
+        self.overall_progress_bar.setValue(100 if success else 0)
+        self.send_progress_bar.setValue(100 if success else 0)
         self.go_button.setEnabled(True)
 
 if __name__ == "__main__":
